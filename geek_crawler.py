@@ -21,7 +21,8 @@ import pathlib
 # 定义日志相关内容
 logging.basicConfig(format='%(asctime)s - %(pathname)s[line:%(lineno)d] - %(levelname)s: %(message)s',
                     level=logging.INFO)
-handler = logging.FileHandler(filename='geek_crawler.log', mode='w', encoding='utf-8')
+handler = logging.FileHandler(
+    filename='geek_crawler.log', mode='w', encoding='utf-8')
 log = logging.getLogger(__name__)
 log.addHandler(handler)
 
@@ -155,6 +156,7 @@ class Cookie:
 
 class GeekCrawler:
     """ 极客时间相关操作的类 """
+
     def __init__(self, cellphone=None, passwd=None, exclude=None):
         self.cellphone = cellphone
         self.password = passwd
@@ -238,7 +240,6 @@ class GeekCrawler:
         self.cookie.load_set_cookie(res.headers['Set-Cookie'])
         log.info('-' * 40)
 
-
     def _product(self, _type='c1'):
         """ 商品列表（就是课程）的接口）方法 """
         log.info("请求获取课程列表接口：")
@@ -254,7 +255,7 @@ class GeekCrawler:
             "last_learn": 0,
             "learn_status": 0,
             "prev": 0,
-            "size": 20,
+            "size": 200,
             "sort": 1,
             "type": "",
             "with_learn_count": 1
@@ -276,7 +277,8 @@ class GeekCrawler:
             _save_finish_article_id_to_file()
             log.info(f"此时 products 的数据为：{self.products}")
             log.error(f"课程列表接口没有获取到内容，请检查请求。返回结果为：{res.content.decode()}")
-            raise NotValueError(f"课程列表接口没有获取到内容，请检查请求。返回结果为：{res.content.decode()}")
+            raise NotValueError(
+                f"课程列表接口没有获取到内容，请检查请求。返回结果为：{res.content.decode()}")
         log.info('-' * 40)
 
     def _parser_products(self, data, _type='c1'):
@@ -295,9 +297,11 @@ class GeekCrawler:
         for product in products:
             # 如果课程标题在需要排除的列表中，则跳过该课程
             if product.get('title', '') in self.exclude:
+                log.info(f"排除课程：{product.get('title', '')}")
                 continue
 
-            new_product = {key: value for key, value in product.items() if key in keys}
+            new_product = {key: value for key,
+                           value in product.items() if key in keys}
             new_product['articles'] = []  # 定义文章列表（用来存储文章信息）
             new_product['article_ids'] = []  # 定义文章 ID 列表（用来存储文章 ID 信息） ）
             for pro in lists:
@@ -305,9 +309,12 @@ class GeekCrawler:
                     new_product['aid'] = pro['aid']
             if _type.lower() == 'all' or new_product['type'] == _type:
                 result.append(new_product)
+            else:
+                log.info(
+                    f"排除课程类型：{product.get('title', '')}，{new_product['type']}, 指定的类型:{_type.lower()}， ")
         return result
 
-    def _article(self, aid, pro, file_type=None, get_comments=False):
+    def _article(self, aid, pro, file_type=None, get_comments=False, product_type='c1'):
         """ 通过课程 ID 获取文章信息接口方法 """
         global FINISH_ARTICLES
         log.info("请求获取文章信息接口：")
@@ -335,26 +342,32 @@ class GeekCrawler:
         self.cookie.load_set_cookie(res.headers['Set-Cookie'])
 
         if data:
-            comments = self._comments(aid) if get_comments else None
-            keys = ['article_content', 'article_title', 'id', 'audio_download_url']  # 定义要拿取的字段
-            article = {key: value for key, value in data.items() if key in keys}
-            self.save_to_file(
-                pro['title'],
-                article['article_title'],
-                article['article_content'],
-                audio=article['audio_download_url'],
-                file_type=file_type,
-                comments=comments
-            )
+            if product_type != 'c1':
+                log.info(f"此 article 的数据为：{data}")
+            else:
+                comments = self._comments(aid) if get_comments else None
+                keys = ['article_content', 'article_title',
+                        'id', 'audio_download_url']  # 定义要拿取的字段
+                article = {key: value for key,
+                           value in data.items() if key in keys}
+                self.save_to_file(
+                    pro['title'],
+                    article['article_title'],
+                    article['article_content'],
+                    audio=article['audio_download_url'],
+                    file_type=file_type,
+                    comments=comments
+                )
 
-            FINISH_ARTICLES.append(article['id'])  # 将该文章 ID 加入到遍历完成的列表中
-            pro['cid'] = data['cid']
-            # pro['articles'].append(article)  # 将文章信息添加到列表中
+                FINISH_ARTICLES.append(article['id'])  # 将该文章 ID 加入到遍历完成的列表中
+                pro['cid'] = data['cid']
+                # pro['articles'].append(article)  # 将文章信息添加到列表中
         else:
             _save_finish_article_id_to_file()
             log.info(f"此时 products 的数据为：{self.products}")
             log.error(f"获取文章信息接口没有获取到内容，请检查请求。返回结果为：{res.content.decode()}")
-            raise NotValueError(f"获取文章信息接口没有获取到内容，请检查请求。返回结果为：{res.content.decode()}")
+            raise NotValueError(
+                f"获取文章信息接口没有获取到内容，请检查请求。返回结果为：{res.content.decode()}")
         log.info('-' * 40)
 
     def _comments(self, aid):
@@ -381,8 +394,10 @@ class GeekCrawler:
         self.cookie.load_set_cookie(res.headers['Set-Cookie'])
 
         if data:
-            keys = ['comment_content', 'comment_ctime', 'user_header', 'user_name', 'replies']  # 定义要拿取的字段
-            comments = [{key: value for key, value in comment.items() if key in keys} for comment in data]
+            keys = ['comment_content', 'comment_ctime',
+                    'user_header', 'user_name', 'replies']  # 定义要拿取的字段
+            comments = [{key: value for key, value in comment.items() if key in keys}
+                        for comment in data]
             return comments
         else:
             return None
@@ -399,7 +414,7 @@ class GeekCrawler:
         headers["Cookie"] = self.cookie.cookie_string
         params = {
             "cid": cid,
-            "size": 100,
+            "size": 300,
             "prev": 0,
             "order": "earliest",
             "sample": "false"
@@ -443,7 +458,9 @@ class GeekCrawler:
             comments: 评论相关数据
         Returns:
         """
-        if not file_type: file_type = '.md'
+        if not file_type:
+            file_type = '.md'
+        dir_name = check_filename(dir_name)
         dir_path = pathlib.PurePosixPath() / dir_name
         if not os.path.isdir(dir_path):
             os.mkdir(dir_path)
@@ -492,9 +509,10 @@ def run(cellphone=None, passwd=None, exclude=None, file_type=None, get_comments=
     global FINISH_ARTICLES
     global ALL_ARTICLES
 
+    _type = 'c1'
     geek = GeekCrawler(cellphone, passwd, exclude=exclude)
     geek._login()  # 请求登录接口进行登录
-    geek._product()  # 请求获取课程接口
+    geek._product(_type)  # 请求获取课程接口
 
     number = 0
 
@@ -510,7 +528,8 @@ def run(cellphone=None, passwd=None, exclude=None, file_type=None, get_comments=
 
             if str(aid) in FINISH_ARTICLES:
                 continue
-            geek._article(aid, pro, file_type=file_type, get_comments=get_comments)  # 获取单个文章的信息
+            geek._article(aid, pro, file_type=file_type,
+                          get_comments=get_comments, product_type=pro['type'])  # 获取单个文章的信息
             time.sleep(5)  # 做一个延时请求，避免过快请求接口被限制访问
             number += 1
             # 判断是否连续抓取过 37次，如果是则暂停 10s
@@ -534,17 +553,29 @@ if __name__ == "__main__":
 
     # 需要排除的课程列表，根据自己的情况定义（比如已经有的资源就不用再继续下载了）
     # exclude = ['左耳听风', '趣谈网络协议']
-    exclude = []
+    exclude = ['10x程序员工作法', 'AB测试从0到1', 'Android开发高手课', 'etcd实战课', 'iOS开发高手课', 'JavaScript进阶实战课', 'Java核心技术面试精讲', '人人都用得上的写作课', '后端存储实战课', '后端技术面试 38 讲', '大厂设计进阶实战课',
+               '如何成为学习高手', '手把手带你搭建秒杀系统', '浏览器工作原理与实践', '浏览器工作原理与实践', '程序员的个人财富课', '计算机基础实战课', '超级访谈：对话毕玄', '趣谈网络协议', '跟月影学可视化', '透视HTTP协议', '重学前端',
+               '陈天 · Rust 编程第一课', '用户体验设计实战课', '用户体验设计实战课', '成为AI产品经理', '硅谷产品实战36讲', '数据分析思维课', '说透数字化转型', '商业思维案例笔记', '性能测试实战30讲', '软件测试52讲', '从0开始学大数据',
+               '操作系统实战45讲', '技术管理实战36讲', '程序员的数学基础课', '程序员进阶攻略', '深入剖析Kubernetes', '架构实战案例解析', 'RPC实战与核心原理', '人人都用得上的数字化思维课', '全链路压测实战30讲', '技术管理案例课', '持续交付36讲',
+               '超级访谈：对话张雪峰', '超级访谈：对话玉伯', '乔新亮的CTO成长复盘', '编译原理之美', '现代C++编程实战', '分布式技术原理与算法解析', '零基础实战机器学习', '人工智能基础课', '深入浅出云计算', '职场求生攻略',
+               '业务开发算法50讲', '趣谈Linux操作系统', 'Redis源码剖析与实战', '雷蓓蓓的项目管理实战课', 'Python核心技术与实战', '深入拆解Java虚拟机', 'Linux性能优化实战', 'Go语言核心36讲', '许式伟的架构课', '从0开始学架构',
+               '技术领导力实战笔记', '技术领导力实战笔记 2022', '打造爆款短视频', '朱赟的技术管理课', '流程型组织15讲', 'React Native 新架构实战课', 'WebAssembly入门课', 'Flutter核心技术与实战', '现代React Web开发实战',
+               '视觉笔记入门课', 'Vue 3 企业级项目实战课', '玩转Vue 3全家桶']
+
+    # 需要确认课程 '技术领导力实战笔记' '技术领导力实战笔记 2022',
 
     # 需要保存文件的后缀名，尽量选 .md 或者 .html
-    file_type = '.md'
+    file_type = '.html'
+
+    # 类型 c1, c3(视频), d, q, p29
 
     # 是否获取评论信息，目前暂时设置为不获取，因为 md 文档中评论显示不太好看，如果需要获取评论的话请设置保存文本为 HTML（样式好看些）
-    get_comments = False  # True
+    get_comments = True  # True
 
     try:
         FINISH_ARTICLES = _load_finish_article()
-        run(cellphone, pwd, exclude=exclude, get_comments=get_comments)
+        run(cellphone, pwd, exclude=exclude,
+            file_type=file_type, get_comments=get_comments)
     except Exception:
         import traceback
         log.error(f"请求过程中出错了，出错信息为：{traceback.format_exc()}")
