@@ -179,32 +179,91 @@ class GeekDownload:
         self.products = []
         self.exclude = exclude
 
-    def _parser_products(self, data):
+    def _products(self, data):
         """
-        解析课程列表内容的方法（从中提取部分数据）
-        Args:
-            data: 课程相关信息，一般为接口返回的数据
-            _type: 课程类型，c1 代表专栏，all 代表全部, 默认只获取专栏的内容
-        Returns:
-            解析后的结果，以列表形式
+        取得文件夹下所有课程
         """
-        result = [
-            'https://static001.geekbang.org/resource/audio/0b/48/0bf4282806173a0339aea119b9822f48.mp3']
-        return result
+        file = rf'{data}'
+        for root, dirs, files in os.walk(file):
+            if root != file:
+                break
+            for dir in dirs:
+                if dir.startswith('.'):
+                    continue
+                path = os.path.join(root, dir)
+                new_pro = {'path': path}
+                new_pro['articles'] = []
+                new_pro['articles_paths'] = []
+                self.products.append(new_pro)
+        
 
-    def _article(self, list):
-        res = requests.get(
-            'https://static001.geekbang.org/resource/audio/0b/48/0bf4282806173a0339aea119b9822f48.mp3')
+    def _parser_product(self, pro):
+        """
+        解析课程列表, 取得文件列表
+        Args:
+            pro: 课程信息
+        Returns: 文章列表
+        """
+        global ALL_ARTICLES
+        articles_paths = []
+        log.info(pro)
+        file = rf'{pro["path"]}'
+        for root, dirs, files in os.walk(file):
+            if root != file:
+                break
+            for dir in files:
+                path = os.path.join(root, dir)
+                articles_paths.append(path)
+                ALL_ARTICLES.append(path)
+        return articles_paths
+
+    def _article(self, article):
+        """
+        修改文章资源
+        """
+        global FINISH_ARTICLES
+
+        try:
+            fileobj = open(article, 'r')
+            while True:
+                line = fileobj.readline()
+                if line:
+                    self.replaceLine(line)
+                else:
+                    break
+        finally:
+            if fileobj:
+                fileobj.close()
+        
+        FINISH_ARTICLES.append(article)
+        log.info(article)
+        log.info('-' * 40)
+
+    def replaceLine(self, line):
+        """
+        返回修改过资源的行
+        """
+
+        
+        url = 'https://static001.geekbang.org/resource/audio/0b/48/0bf4282806173a0339aea119b9822f48.mp3'
+        path = './ss/.mp3'
+
+        self.download_to_file(url, path)
+        log.info(line)
+
+    @staticmethod
+    def download_to_file(url, path):
+        """
+        下载链接文件到指定路径
+        """
+        res = requests.get(url)
 
         # 将文件写入pythonimage.png这个文件中，保存在当前程序运行的目录
-        with open('0bf4282806173a0339aea119b9822f48.mp3', 'wb') as f:
-            f.write(res.content)
+        # with open('0bf4282806173a0339aea119b9822f48.mp3', 'wb') as f:
+        #     f.write(res.content)
 
         # 写入本地磁盘文件
-        open('/Users/James/NewData/geek_product/1.mp3',
-             'wb').write(res.content)
-
-        log.info('-' * 40)
+        open(path, 'wb').write(res.content)
 
     @staticmethod
     def save_to_file(dir_name, filename, content, audio=None, file_type=None, comments=None):
@@ -228,41 +287,12 @@ class GeekDownload:
         filename = check_filename(filename)
         file_path = os.path.abspath(dir_path / (filename + file_type))
 
-        # 处理评论数据
-        temp = ""
-        if comments:
-            with open('comment.css', 'r', encoding='utf-8') as f:
-                comment_style = f.read()
-            temp = comment_style + "<ul>"
-            for comment in comments:
-                replie_str = ""
-                for replie in comment.get('replies', []):
-                    replie_str += f"""<p class="_3KxQPN3V_0">{replie['user_name']}: {replie['content']}</p>"""
-                comment_str = f"""<li>
-<div class="_2sjJGcOH_0"><img src="{comment['user_header']}"
-  class="_3FLYR4bF_0">
-<div class="_36ChpWj4_0">
-  <div class="_2zFoi7sd_0"><span>{comment['user_name']}</span>
-  </div>
-  <div class="_2_QraFYR_0">{comment['comment_content']}</div>
-  <div class="_10o3OAxT_0">
-    {replie_str}
-  </div>
-  <div class="_3klNVc4Z_0">
-    <div class="_3Hkula0k_0">{datetime.datetime.fromtimestamp(comment['comment_ctime'])}</div>
-  </div>
-</div>
-</div>
-</li>\n"""
-                temp += comment_str
-            temp += "</ul>"
-
         # 将所有数据写入文件中
         with open(file_path, 'w', encoding='utf-8') as f:
             if audio:
                 audio_text = f'<audio title="{filename}" src="{audio}" controls="controls"></audio> \n'
                 f.write(audio_text)
-            f.write(content + temp)
+            f.write(content)
 
 
 def run(exclude=None):
@@ -272,12 +302,21 @@ def run(exclude=None):
 
     _type = 'c1'
     geek = GeekDownload(exclude=exclude)
-    geek.products = ['111']
+    geek._products('.')
     number = 0
 
     for pro in geek.products:
-        geek._article([''])  # 获取单个文章的信息
-        time.sleep(5)  # 做一个延时请求，避免过快请求接口被限制访问
+        pro['articles_paths'] = geek._parser_product(pro)
+        article_paths = pro['articles_paths'] 
+        for article in article_paths:
+            if set(ALL_ARTICLES) == set(FINISH_ARTICLES):
+                import sys
+                log.info("正常下载完成啦，不用再继续跑脚本了。")
+                sys.exit(1)
+            if str(article) in FINISH_ARTICLES:
+                continue
+            geek._article(article)
+        #time.sleep(5)  # 做一个延时请求，避免过快请求接口被限制访问
         number += 1
         # 判断是否连续抓取过 37次，如果是则暂停 10s
         if number == 37:
