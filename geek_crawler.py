@@ -509,7 +509,7 @@ def run(cellphone=None, passwd=None, exclude=None, file_type=None, get_comments=
     global FINISH_ARTICLES
     global ALL_ARTICLES
 
-    _type = 'c1'
+    _type = 'c3'
     geek = GeekCrawler(cellphone, passwd, exclude=exclude)
     geek._login()  # 请求登录接口进行登录
     geek._product(_type)  # 请求获取课程接口
