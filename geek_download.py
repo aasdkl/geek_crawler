@@ -17,12 +17,14 @@ import logging
 import os
 import pathlib
 
-
 # 定义日志相关内容
-logging.basicConfig(format='%(asctime)s - %(pathname)s[line:%(lineno)d] - %(levelname)s: %(message)s',
-                    level=logging.INFO)
-handler = logging.FileHandler(
-    filename='geek_download.log', mode='w', encoding='utf-8')
+logging.basicConfig(
+    format=
+    '%(asctime)s - %(pathname)s[line:%(lineno)d] - %(levelname)s: %(message)s',
+    level=logging.INFO)
+handler = logging.FileHandler(filename='geek_download.log',
+                              mode='w',
+                              encoding='utf-8')
 log = logging.getLogger(__name__)
 log.addHandler(handler)
 
@@ -88,6 +90,7 @@ def check_filename(file_name):
 
 
 class Cookie:
+
     def __init__(self, cookie_string=None):
         self._cookies = {}
         if cookie_string:
@@ -158,23 +161,34 @@ class GeekDownload:
     """ 极客时间相关操作的类 """
 
     def __init__(self, exclude=None):
-        self.cookie = Cookie("LF_ID=1587783958277-6056470-8195597;_ga=GA1.2.880710184.1587783959;"
-                             "_gid=GA1.2.1020649675.1587783959; SERVERID=1fa1f330efedec1559b3abbc"
-                             "b6e30f50|1587784166|1587783958; _gat=1;Hm_lvt_022f847c4e3acd44d4a24"
-                             "81d9187f1e6=1587775851,1587775917,1587783916,1587784202; Hm_lpvt_02"
-                             "2f847c4e3acd44d4a2481d9187f1e6=1587784202;")
+        self.cookie = Cookie(
+            "LF_ID=1587783958277-6056470-8195597;_ga=GA1.2.880710184.1587783959;"
+            "_gid=GA1.2.1020649675.1587783959; SERVERID=1fa1f330efedec1559b3abbc"
+            "b6e30f50|1587784166|1587783958; _gat=1;Hm_lvt_022f847c4e3acd44d4a24"
+            "81d9187f1e6=1587775851,1587775917,1587783916,1587784202; Hm_lpvt_02"
+            "2f847c4e3acd44d4a2481d9187f1e6=1587784202;")
         self.common_headers = {
-            "Accept": "application/json, text/plain, */*",
-            "Accept-Encoding": "gzip, deflate, br",
-            "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "Pragma": "no-cache",
-            "Sec-Fetch-Dest": "empty",
-            "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Site": "same-origin",
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_6) "
-                          "AppleWebKit/537.36 (KHTML, like Gecko)Chrome/81.0.4044.122 Safari/537.36"
+            "Accept":
+            "application/json, text/plain, */*",
+            "Accept-Encoding":
+            "gzip, deflate, br",
+            "Accept-Language":
+            "zh-CN,zh;q=0.9,en;q=0.8",
+            "Cache-Control":
+            "no-cache",
+            "Connection":
+            "keep-alive",
+            "Pragma":
+            "no-cache",
+            "Sec-Fetch-Dest":
+            "empty",
+            "Sec-Fetch-Mode":
+            "cors",
+            "Sec-Fetch-Site":
+            "same-origin",
+            "User-Agent":
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_6) "
+            "AppleWebKit/537.36 (KHTML, like Gecko)Chrome/81.0.4044.122 Safari/537.36"
         }
         self.products = []
         self.exclude = exclude
@@ -195,7 +209,6 @@ class GeekDownload:
                 new_pro['articles'] = []
                 new_pro['articles_paths'] = []
                 self.products.append(new_pro)
-        
 
     def _parser_product(self, pro):
         """
@@ -223,33 +236,65 @@ class GeekDownload:
         """
         global FINISH_ARTICLES
 
+        modArticle = ''
         try:
-            fileobj = open(article, 'r')
+            fileobj = open(article, 'r', encoding='utf-8')
+            cnt = 0
             while True:
                 line = fileobj.readline()
                 if line:
-                    self.replaceLine(line)
+                    modLine = self.replaceLine(line)
+                    modArticle += self.replaceLine(line) + "\n"
                 else:
+                    break
+                # 修改了资源
+                if modLine != line:
+                    cnt += 1
+                if cnt > 1:
                     break
         finally:
             if fileobj:
                 fileobj.close()
-        
+
         FINISH_ARTICLES.append(article)
-        log.info(article)
+        #log.info(article)
+        #log.info(modArticle)
         log.info('-' * 40)
 
-    def replaceLine(self, line):
+    def replaceUrl(self, resource):
+        findSrc = re.search('src=".+?"', resource)
+        if findSrc != None:
+            span = findSrc.span()
+            start = span[0] + 5
+            end = span[1] - 1
+            url = resource[start:end]
+            if re.search("\S\.mp3", url):
+                path = "./audio.mp3"
+            else:
+                path = "./other.jpg"
+            print(url)
+            self.download_to_file(url, path)
+            return resource[:start] + path + resource[end:]
+        else:
+            return resource
+
+    def replaceResource(self, line, findResource):
+        dest = self.replaceUrl(findResource.group())
+        span = findResource.span()
+        replace = line[:span[0]] + dest + line[span[1]:]
+        return replace
+
+    def replaceLine(self, line: str):
         """
         返回修改过资源的行
         """
-
-        
-        url = 'https://static001.geekbang.org/resource/audio/0b/48/0bf4282806173a0339aea119b9822f48.mp3'
-        path = './ss/.mp3'
-
-        self.download_to_file(url, path)
-        log.info(line)
+        findRes = re.search('<audio.*src=".+.mp3".+?></audio>', line)
+        if findRes == None:
+            findRes = re.search('<img.+src=".+?".+?>', line)
+        if findRes != None:
+            line = self.replaceResource(line, findRes)
+        # log.info(line)
+        return line
 
     @staticmethod
     def download_to_file(url, path):
@@ -266,7 +311,12 @@ class GeekDownload:
         open(path, 'wb').write(res.content)
 
     @staticmethod
-    def save_to_file(dir_name, filename, content, audio=None, file_type=None, comments=None):
+    def save_to_file(dir_name,
+                     filename,
+                     content,
+                     audio=None,
+                     file_type=None,
+                     comments=None):
         """
         将结果保存成文件的方法，保存在当前目录下
         Args:
@@ -307,15 +357,18 @@ def run(exclude=None):
 
     for pro in geek.products:
         pro['articles_paths'] = geek._parser_product(pro)
-        article_paths = pro['articles_paths'] 
+        article_paths = pro['articles_paths']
+        cnt = 0
         for article in article_paths:
-            if set(ALL_ARTICLES) == set(FINISH_ARTICLES):
-                import sys
-                log.info("正常下载完成啦，不用再继续跑脚本了。")
-                sys.exit(1)
-            if str(article) in FINISH_ARTICLES:
-                continue
+            # if set(ALL_ARTICLES) == set(FINISH_ARTICLES):
+            #     import sys
+            #     log.info("正常下载完成啦，不用再继续跑脚本了。")
+            #     sys.exit(1)
+            # if str(article) in FINISH_ARTICLES:
+            #     continue
             geek._article(article)
+            import sys
+            sys.exit(1)
         #time.sleep(5)  # 做一个延时请求，避免过快请求接口被限制访问
         number += 1
         # 判断是否连续抓取过 37次，如果是则暂停 10s
