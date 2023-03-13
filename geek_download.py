@@ -204,6 +204,13 @@ class GeekDownload:
             for dir in dirs:
                 if dir.startswith('.'):
                     continue
+
+                # 如果课程标题在需要排除的列表中，则跳过该课程
+                product = self.findName(dir)
+                if product in self.exclude:
+                    log.info(f"排除课程：{product}")
+                    continue
+
                 path = os.path.join(root, dir)
                 new_pro = {'path': path}
                 new_pro['articles'] = []
@@ -427,7 +434,7 @@ def run(exclude=None):
 
 if __name__ == "__main__":
     # 忽略文章
-    exclude = []
+    exclude = ['WebAssembly入门课']
 
     try:
         FINISH_ARTICLES = _load_finish_article()
