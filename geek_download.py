@@ -201,7 +201,7 @@ class GeekDownload:
         for root, dirs, files in os.walk(file):
             if root != file:
                 break
-            for dir in dirs:
+            for dir in sorted(dirs):
                 if dir.startswith('.'):
                     continue
 
@@ -231,7 +231,7 @@ class GeekDownload:
         for root, dirs, files in os.walk(file):
             if root != file:
                 break
-            for dir in files:
+            for dir in sorted(files):
                 path = os.path.join(root, dir)
                 articles_paths.append(path)
                 ALL_ARTICLES.append(path)
@@ -246,7 +246,7 @@ class GeekDownload:
         articleName = self.findName(article)
         modArticle = ''
         proDir = os.path.dirname(article)
-        articleDir = f"{proDir}\{articleName}"
+        articleDir = f"{proDir}/{articleName}"
         if not os.path.exists(articleDir):
             os.makedirs(articleDir)
 
@@ -261,10 +261,10 @@ class GeekDownload:
                 else:
                     break
                 # 修改了资源
-                if modLine != line:
-                    # 下载一次， 暂停两秒
-                    time.sleep(1)
-                    cnt += 1
+                #if modLine != line:
+                # 下载一次， 暂停两秒
+                #time.sleep(1)
+                #    cnt += 1
                 # if cnt > 1:
                 #     break
         finally:
@@ -288,7 +288,7 @@ class GeekDownload:
             fileName = ""
             if re.search("\S\.mp3", url):
                 fileName = f"audio.mp3"
-                path = f"{folder}\{fileName}"
+                path = f"{folder}/{fileName}"
                 isAudio = True
             else:
                 realPath = self.removeSearch(url)
@@ -297,7 +297,7 @@ class GeekDownload:
                 if ext == None:
                     ext = 'img'
                 fileName = f"{name}.{ext}"
-                path = f"{folder}\{fileName}"
+                path = f"{folder}/{fileName}"
 
             self.download_to_file(url, path)
             return resource[:start] + fileName + resource[end:]
@@ -392,7 +392,7 @@ class GeekDownload:
         """
         if not file_type:
             file_type = '.md'
-        file_path = f"{dir_name}\{filename}{file_type}"
+        file_path = f"{dir_name}/{filename}{file_type}"
 
         # 将所有数据写入文件中
         with open(file_path, 'w', encoding='utf-8') as f:
@@ -434,7 +434,7 @@ def run(exclude=None):
 
 if __name__ == "__main__":
     # 忽略文章
-    exclude = ['WebAssembly入门课']
+    exclude = ['WebAssembly入门课', '10x程序员工作法', 'AB测试从0到1']
 
     try:
         FINISH_ARTICLES = _load_finish_article()
