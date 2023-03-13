@@ -219,7 +219,7 @@ class GeekDownload:
         """
         global ALL_ARTICLES
         articles_paths = []
-        log.info(pro)
+        # log.info(pro)
         file = rf'{pro["path"]}'
         for root, dirs, files in os.walk(file):
             if root != file:
@@ -236,112 +236,159 @@ class GeekDownload:
         """
         global FINISH_ARTICLES
 
+        articleName = self.findName(article)
         modArticle = ''
+        proDir = os.path.dirname(article)
+        articleDir = f"{proDir}\{articleName}"
+        if not os.path.exists(articleDir):
+            os.makedirs(articleDir)
+
         try:
             fileobj = open(article, 'r', encoding='utf-8')
             cnt = 0
             while True:
                 line = fileobj.readline()
                 if line:
-                    modLine = self.replaceLine(line)
-                    modArticle += self.replaceLine(line) + "\n"
+                    modLine = self.replaceLine(articleDir, articleName, line)
+                    modArticle += modLine + "\n"
                 else:
                     break
                 # 修改了资源
                 if modLine != line:
+                    # 下载一次， 暂停两秒
+                    time.sleep(1)
                     cnt += 1
-                if cnt > 1:
-                    break
+                # if cnt > 1:
+                #     break
         finally:
             if fileobj:
                 fileobj.close()
 
+        self.save_to_file(articleDir, 'index', modArticle, '.html')
+
         FINISH_ARTICLES.append(article)
-        #log.info(article)
-        #log.info(modArticle)
+        log.info(articleName)
         log.info('-' * 40)
 
-    def replaceUrl(self, resource):
+    def replaceUrl(self, folder, articleName, resource):
         findSrc = re.search('src=".+?"', resource)
         if findSrc != None:
             span = findSrc.span()
             start = span[0] + 5
             end = span[1] - 1
             url = resource[start:end]
+            isAudio = False
+            fileName = ""
             if re.search("\S\.mp3", url):
-                path = "./audio.mp3"
+                fileName = f"audio.mp3"
+                path = f"{folder}\{fileName}"
+                isAudio = True
             else:
-                path = "./other.jpg"
-            print(url)
+                realPath = self.removeSearch(url)
+                name = self.findName(realPath)
+                ext = self.findExt(realPath)
+                if ext == None:
+                    ext = 'img'
+                fileName = f"{name}.{ext}"
+                path = f"{folder}\{fileName}"
+
             self.download_to_file(url, path)
-            return resource[:start] + path + resource[end:]
+            return resource[:start] + fileName + resource[end:]
         else:
             return resource
 
-    def replaceResource(self, line, findResource):
-        dest = self.replaceUrl(findResource.group())
+    def replaceResource(self, folder, articleName, line, findResource):
+        dest = self.replaceUrl(folder, articleName, findResource.group())
         span = findResource.span()
         replace = line[:span[0]] + dest + line[span[1]:]
         return replace
 
-    def replaceLine(self, line: str):
+    def replaceLine(self, folder, articleName, line: str):
         """
         返回修改过资源的行
         """
         findRes = re.search('<audio.*src=".+.mp3".+?></audio>', line)
         if findRes == None:
-            findRes = re.search('<img.+src=".+?".+?>', line)
+            findRes = re.search('<img.+src=".+?"', line)
         if findRes != None:
-            line = self.replaceResource(line, findRes)
-        # log.info(line)
+            line = self.replaceResource(folder, articleName, line, findRes)
         return line
+
+    def testDownload(self):
+        self.download_to_file(
+            'https://thirdwx.qlogo.cn/mmopen/vi_32/Ewb31JsMN7J18ZoZMR2DBGvoxv06oLDuMGBibE4LfHVDHrwNb7JWPXia787OGKAkMUYrymLqmj2hWut1R4bzEWAQ/132',
+            'D:/1.g')
+        import sys
+        sys.exit(1)
+
+    @staticmethod
+    def removeSearch(data):
+        findQues = re.search('[^\?]*', data)
+        if findQues != None:
+            return data[:findQues.span()[1]]
+        else:
+            return data
+
+    @staticmethod
+    def findName(data):
+        pathArr = data.split("\\")
+        if len(pathArr) == 1:
+            pathArr = data.split("/")
+        lastSeg = pathArr[len(pathArr) - 1]
+        # 找到最后一个 .字符位置
+        nameFind = re.search('.*\.', lastSeg)
+        if nameFind != None:
+            return lastSeg[:nameFind.span()[1] - 1]
+        else:
+            return lastSeg
+
+    @staticmethod
+    def findExt(data):
+        pathArr = data.split("\\")
+        if len(pathArr) == 1:
+            pathArr = data.split("/")
+        lastSeg = pathArr[len(pathArr) - 1]
+        nameFind = re.search('.*\.', lastSeg)
+        if nameFind != None:
+            return lastSeg[nameFind.span()[1]:]
+        else:
+            return None
 
     @staticmethod
     def download_to_file(url, path):
         """
         下载链接文件到指定路径
         """
+        if os.path.exists(path):
+            print('exist:' + url)
+            return
+
+        print('download:' + url)
+        # 下载文件
         res = requests.get(url)
 
-        # 将文件写入pythonimage.png这个文件中，保存在当前程序运行的目录
-        # with open('0bf4282806173a0339aea119b9822f48.mp3', 'wb') as f:
-        #     f.write(res.content)
-
-        # 写入本地磁盘文件
-        open(path, 'wb').write(res.content)
+        print('saveto:' + path)
+        # # 写入本地磁盘文件
+        with open(path, 'wb') as f:
+            f.write(res.content)
 
     @staticmethod
-    def save_to_file(dir_name,
-                     filename,
-                     content,
-                     audio=None,
-                     file_type=None,
-                     comments=None):
+    def save_to_file(dir_name, filename, content, file_type=None):
         """
         将结果保存成文件的方法，保存在当前目录下
         Args:
             dir_name: 文件夹名称，如果不存在该文件夹则会创建文件夹
             filename: 文件名称，直接新建
             content: 需要保存的文本内容
-            audio: 需要填入文件中的音频文件（一般为音频地址）
             file_type: 文档类型（需要保存什么类型的文档），默认保存为 Markdown 文档
-            comments: 评论相关数据
         Returns:
         """
         if not file_type:
             file_type = '.md'
-        dir_name = check_filename(dir_name)
-        dir_path = pathlib.PurePosixPath() / dir_name
-        if not os.path.isdir(dir_path):
-            os.mkdir(dir_path)
-        filename = check_filename(filename)
-        file_path = os.path.abspath(dir_path / (filename + file_type))
+        file_path = f"{dir_name}\{filename}{file_type}"
 
         # 将所有数据写入文件中
         with open(file_path, 'w', encoding='utf-8') as f:
-            if audio:
-                audio_text = f'<audio title="{filename}" src="{audio}" controls="controls"></audio> \n'
-                f.write(audio_text)
             f.write(content)
 
 
@@ -350,9 +397,8 @@ def run(exclude=None):
     global FINISH_ARTICLES
     global ALL_ARTICLES
 
-    _type = 'c1'
     geek = GeekDownload(exclude=exclude)
-    geek._products('.')
+    geek._products('./courses')
     number = 0
 
     for pro in geek.products:
@@ -360,15 +406,15 @@ def run(exclude=None):
         article_paths = pro['articles_paths']
         cnt = 0
         for article in article_paths:
-            # if set(ALL_ARTICLES) == set(FINISH_ARTICLES):
-            #     import sys
-            #     log.info("正常下载完成啦，不用再继续跑脚本了。")
-            #     sys.exit(1)
-            # if str(article) in FINISH_ARTICLES:
-            #     continue
+            if set(ALL_ARTICLES) == set(FINISH_ARTICLES):
+                import sys
+                log.info("正常下载完成啦，不用再继续跑脚本了。")
+                sys.exit(1)
+            if str(article) in FINISH_ARTICLES:
+                continue
             geek._article(article)
-            import sys
-            sys.exit(1)
+            # import sys
+            # sys.exit(1)
         #time.sleep(5)  # 做一个延时请求，避免过快请求接口被限制访问
         number += 1
         # 判断是否连续抓取过 37次，如果是则暂停 10s
@@ -380,8 +426,8 @@ def run(exclude=None):
 
 
 if __name__ == "__main__":
-    exclude = ['左耳听风']
-    # 需要确认课程 '技术领导力实战笔记' '技术领导力实战笔记 2022',
+    # 忽略文章
+    exclude = []
 
     try:
         FINISH_ARTICLES = _load_finish_article()
