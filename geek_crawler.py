@@ -315,7 +315,7 @@ class GeekCrawler:
                     f"排除课程类型：{product.get('title', '')}，{new_product['type']}, 指定的类型:{_type.lower()}， ")
         return result
 
-    def _article(self, aid, pro, file_type=None, get_comments=False, product_type='c1'):
+    def _article(self, aid, pro, file_type=None, get_comments=False, product_type='c1', ignore_avator=False):
         """ 通过课程 ID 获取文章信息接口方法 """
         global FINISH_ARTICLES
         log.info("请求获取文章信息接口：")
@@ -343,26 +343,23 @@ class GeekCrawler:
         self.cookie.load_set_cookie(res.headers['Set-Cookie'])
 
         if data:
-            if product_type != 'c1':
-                log.info(f"此 article 的数据为：{data}")
-            else:
-                comments = self._comments(aid) if get_comments else None
-                keys = ['article_content', 'article_title',
-                        'id', 'audio_download_url']  # 定义要拿取的字段
-                article = {key: value for key,
-                           value in data.items() if key in keys}
-                self.save_to_file(
-                    pro['title'].strip(),
-                    article['article_title'],
-                    article['article_content'],
-                    audio=article['audio_download_url'],
-                    file_type=file_type,
-                    comments=comments
-                )
+            comments = self._comments(aid) if get_comments else None
+            keys = ['article_content', 'article_title', 'id', 'audio_download_url']  # 定义要拿取的字段
+            article = {key: value for key,
+                       value in data.items() if key in keys}
+            self.save_to_file(
+                pro['title'].strip(),
+                article['article_title'],
+                article['article_content'],
+                audio=article['audio_download_url'],
+                file_type=file_type,
+                comments=comments,
+                ignore_avator=ignore_avator
+            )
 
-                FINISH_ARTICLES.append(article['id'])  # 将该文章 ID 加入到遍历完成的列表中
-                pro['cid'] = data['cid']
-                # pro['articles'].append(article)  # 将文章信息添加到列表中
+            FINISH_ARTICLES.append(article['id'])  # 将该文章 ID 加入到遍历完成的列表中
+            pro['cid'] = data['cid']
+            # pro['articles'].append(article)  # 将文章信息添加到列表中
         else:
             _save_finish_article_id_to_file()
             log.info(f"此时 products 的数据为：{self.products}")
@@ -446,8 +443,7 @@ class GeekCrawler:
             raise NotValueError(f"获取文章列表接口没有获取到内容，请检查请求。返回结果为：{res.json()}")
         log.info('-' * 40)
 
-    @staticmethod
-    def save_to_file(dir_name, filename, content, audio=None, file_type=None, comments=None):
+    def save_to_file(self, dir_name, filename, content, audio=None, file_type=None, comments=None, ignore_avator=False):
         """
         将结果保存成文件的方法，保存在当前目录下
         Args:
@@ -468,19 +464,32 @@ class GeekCrawler:
         filename = check_filename(filename)
         file_path = os.path.abspath(dir_path / (filename + file_type))
 
+        style = ''
+
+        if file_type == '.html':
+            with open('style.css', 'r', encoding='utf-8') as f:
+                style = f.read()
+
+            # 用于下载资源文件（TODO 目前只支持 .html 格式进行下载）
+            article_dir = pathlib.PurePosixPath() / dir_name / filename
+            if not os.path.isdir(article_dir):
+                os.mkdir(article_dir)
+            file_path = os.path.abspath(article_dir / 'index.html')
+
+            content = self.save_and_update_resource(content, article_dir, filename)
+
         # 处理评论数据
         temp = ""
         if comments:
             with open('comment.css', 'r', encoding='utf-8') as f:
                 comment_style = f.read()
-            temp = comment_style + "<ul>"
+            temp = "<hr color='#ddd'>\n" + comment_style + "<ul class='comment'>"
             for comment in comments:
                 replie_str = ""
                 for replie in comment.get('replies', []):
                     replie_str += f"""<p class="_3KxQPN3V_0">{replie['user_name']}: {replie['content']}</p>"""
-                comment_str = f"""<li>
-<div class="_2sjJGcOH_0"><img src="{comment['user_header']}"
-  class="_3FLYR4bF_0">
+                comment_str = '<li>\n<div class="_2sjJGcOH_0">' + \
+                    ('' if ignore_avator else f"""<img class="_3FLYR4bF_0" src="{comment['user_header']}">""") + f"""
 <div class="_36ChpWj4_0">
   <div class="_2zFoi7sd_0"><span>{comment['user_name']}</span>
   </div>
@@ -497,15 +506,122 @@ class GeekCrawler:
                 temp += comment_str
             temp += "</ul>"
 
+        # 下载头像数据
+        if not ignore_avator:
+            temp = self.save_and_update_resource(temp, article_dir, filename)
+
         # 将所有数据写入文件中
         with open(file_path, 'w', encoding='utf-8') as f:
             if audio:
                 audio_text = f'<audio title="{filename}" src="{audio}" controls="controls"></audio> \n'
-                f.write(audio_text)
-            f.write(content + temp)
+                f.write(self.save_and_update_resource(audio_text, article_dir, filename))
+            f.write(content + style + temp)
 
+    def save_and_update_resource(self, content, article_dir, filename): #todo
+        content_lines = content.splitlines()
+        updated_content = ''
+        for line in content_lines:
+            if line:
+                modLine = self.replaceLine(article_dir, filename, line)
+                updated_content += modLine + "\n"
+        return updated_content
 
-def run(cellphone=None, passwd=None, exclude=None, file_type=None, get_comments=False, course_type=None):
+    def replaceLine(self, folder, articleName, line: str):
+        """
+        返回修改过资源的行
+        """
+        findRes = re.search('<audio.*src=".+.mp3".+?></audio>', line)
+        if findRes == None:
+            findRes = re.search('<img.+src=".+?"', line)
+        if findRes != None:
+            line = self.replaceResource(folder, articleName, line, findRes)
+        return line
+
+    def replaceResource(self, folder, articleName, line, findResource):
+        dest = self.replaceUrl(folder, articleName, findResource.group())
+        span = findResource.span()
+        replace = line[:span[0]] + dest + line[span[1]:]
+        return replace
+
+    def replaceUrl(self, folder, articleName, resource):
+        findSrc = re.search('src=".+?"', resource)
+        if findSrc != None:
+            span = findSrc.span()
+            start = span[0] + 5
+            end = span[1] - 1
+            url = resource[start:end]
+            isAudio = False
+            fileName = ""
+            if re.search("\S\.mp3", url):
+                fileName = f"audio.mp3"
+                path = f"{folder}/{fileName}"
+                isAudio = True
+            else:
+                realPath = self.removeSearch(url)
+                name = self.findName(realPath)
+                ext = self.findExt(realPath)
+                if ext == None:
+                    ext = 'img'
+                fileName = f"{name}.{ext}"
+                path = f"{folder}/{fileName}"
+
+            self.download_to_file(url, path)
+            return resource[:start] + fileName + resource[end:]
+        else:
+            return resource
+
+    @staticmethod
+    def removeSearch(data):
+        findQues = re.search('[^\?]*', data)
+        if findQues != None:
+            return data[:findQues.span()[1]]
+        else:
+            return data
+
+    @staticmethod
+    def findName(data):
+        pathArr = data.split("\\")
+        if len(pathArr) == 1:
+            pathArr = data.split("/")
+        lastSeg = pathArr[len(pathArr) - 1]
+        # 找到最后一个 .字符位置
+        nameFind = re.search('.*\.', lastSeg)
+        if nameFind != None:
+            return lastSeg[:nameFind.span()[1] - 1]
+        else:
+            return lastSeg
+
+    @staticmethod
+    def findExt(data):
+        pathArr = data.split("\\")
+        if len(pathArr) == 1:
+            pathArr = data.split("/")
+        lastSeg = pathArr[len(pathArr) - 1]
+        nameFind = re.search('.*\.', lastSeg)
+        if nameFind != None:
+            return lastSeg[nameFind.span()[1]:]
+        else:
+            return None
+
+    @staticmethod
+    def download_to_file(url, path):
+        """
+        下载链接文件到指定路径
+        """
+        if os.path.exists(path):
+            print('exist:' + url)
+            return
+
+        print('download:' + url)
+        # 下载文件
+        res = requests.get(url)
+
+        print('saveto:' + path)
+        # # 写入本地磁盘文件
+        with open(path, 'wb') as f:
+            f.write(res.content)
+
+def run(cellphone=None, passwd=None, exclude=None, file_type=None, get_comments=False, course_type="c1", ignore_avator=False):
     """ 整体流程的请求方法 """
     global FINISH_ARTICLES
     global ALL_ARTICLES
@@ -528,8 +644,8 @@ def run(cellphone=None, passwd=None, exclude=None, file_type=None, get_comments=
 
             if str(aid) in FINISH_ARTICLES:
                 continue
-            geek._article(aid, pro, file_type=file_type,
-                          get_comments=get_comments, product_type=pro['type'])  # 获取单个文章的信息
+            geek._article(aid, pro, file_type=file_type, get_comments=get_comments,
+                          product_type=pro['type'], ignore_avator=ignore_avator)  # 获取单个文章的信息
             time.sleep(5)  # 做一个延时请求，避免过快请求接口被限制访问
             number += 1
             # 判断是否连续抓取过 37次，如果是则暂停 10s
@@ -561,7 +677,7 @@ if __name__ == "__main__":
                '业务开发算法50讲', '趣谈Linux操作系统', 'Redis源码剖析与实战', '雷蓓蓓的项目管理实战课', 'Python核心技术与实战', '深入拆解Java虚拟机', 'Linux性能优化实战', 'Go语言核心36讲', '许式伟的架构课', '从0开始学架构',
                '技术领导力实战笔记', '技术领导力实战笔记 2022', '打造爆款短视频', '朱赟的技术管理课', '流程型组织15讲', 'React Native 新架构实战课', 'WebAssembly入门课', 'Flutter核心技术与实战', '现代React Web开发实战',
                '视觉笔记入门课', 'Vue 3 企业级项目实战课', '玩转Vue 3全家桶','白话法律42讲','从0开始学游戏开发','代码精进之路','郭东白的架构课','后端工程师的高阶面经','MySQL实战45讲','数据结构与算法之美','设计模式之美',
-               'Spring Boot与Kubernetes云原生微服务实践','程序员的数学基础课','小马哥讲Spring核心编程思想']
+               'Spring Boot与Kubernetes云原生微服务实践','小马哥讲Spring核心编程思想']
 
     # 需要保存文件的后缀名，.md 或者 .html
     # 当使用 .html 的时候，会把音频和图片资源下载到本地
@@ -574,11 +690,14 @@ if __name__ == "__main__":
     # 是否获取评论信息，md 文档中评论显示不太好看，如果需要获取评论的话请设置保存文本为 HTML（样式好看些）
     get_comments = True
 
+    # 是否忽略评论区头像
+    ignore_avator = True
+
     try:
         FINISH_ARTICLES = _load_finish_article()
         run(cellphone, pwd, exclude=exclude,
             file_type=file_type, get_comments=get_comments,
-            course_type=course_type)
+            course_type=course_type, ignore_avator=ignore_avator)
     except Exception:
         import traceback
         log.error(f"请求过程中出错了，出错信息为：{traceback.format_exc()}")

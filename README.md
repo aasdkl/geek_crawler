@@ -1,11 +1,9 @@
 # geek_crawler
 
 使用方式：
-1. 修改 `geek_crawler.py` 中的 `exclude`、`article_type` 项
+1. 修改 `geek_crawler.py` 中的 `exclude`、`article_type` 等项
 2. 运行 `python geek_crawler.py`
-3. 将下载成功的文件夹放入 `./courses` 文件夹
-4. 运行 `python geek_download.py` 下载图片音频文件（会把评论中的头像也下下来）
-5. 资源链接更新后，课程在子目录下的 `index.html`
+5. 课程在当前目录
 
 （视频资源暂未实现）
 

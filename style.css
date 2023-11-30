@@ -1,0 +1,46 @@
+<style>
+  body {
+    padding: 19px;
+    font-family: "PingFang SC", "Lantinghei SC", "Microsoft Yahei", "Hiragino Sans GB", "Microsoft Sans Serif", "WenQuanYi Micro Hei", Helvetica, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering:optimizelegibility;
+    -webkit-tap-highlight-color: rgba(255,255,255,0);
+    font-weight: 400;
+    font-size: 17px;
+    line-height: 30px;
+    color: #353535;
+    width: 748px;
+    margin: 0 auto;
+  }
+  h1 {
+    margin-top: 2em;
+    font-size: 30px;
+  }
+  h2 {
+    margin-top: 2em;
+    font-size: 20px;
+  }
+  img {
+    width: 100%;
+  }
+  pre {
+    color: #666;
+    border: 1px solid #e6e8eb;
+    border-radius: 3px;
+    background: #f7f9fa;
+    position: relative;
+    margin-bottom: 30px;
+    padding: 20px;
+    padding-right: 20px;
+    width: 104%;
+    left: -2%;
+    overflow: auto;
+  }
+  code {
+    line-height: 20px;
+    font-size: 13px;
+    white-space: pre;
+    word-wrap: normal;
+    font-family: 'Source Code Pro', Courier;
+  }
+</style>
