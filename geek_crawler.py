@@ -80,6 +80,7 @@ def check_filename(file_name):
                     .replace('<', '《') \
                     .replace('>', '》') \
                     .replace('|', '_') \
+                    .replace('"', '\'') \
                     .replace('\n', '') \
                     .replace('\b', '') \
                     .replace('\f', '') \
@@ -351,7 +352,7 @@ class GeekCrawler:
                 article = {key: value for key,
                            value in data.items() if key in keys}
                 self.save_to_file(
-                    pro['title'],
+                    pro['title'].strip(),
                     article['article_title'],
                     article['article_content'],
                     audio=article['audio_download_url'],
@@ -504,15 +505,14 @@ class GeekCrawler:
             f.write(content + temp)
 
 
-def run(cellphone=None, passwd=None, exclude=None, file_type=None, get_comments=False):
+def run(cellphone=None, passwd=None, exclude=None, file_type=None, get_comments=False, course_type=None):
     """ 整体流程的请求方法 """
     global FINISH_ARTICLES
     global ALL_ARTICLES
 
-    _type = 'c3'
     geek = GeekCrawler(cellphone, passwd, exclude=exclude)
     geek._login()  # 请求登录接口进行登录
-    geek._product(_type)  # 请求获取课程接口
+    geek._product(course_type)  # 请求获取课程接口
 
     number = 0
 
@@ -560,22 +560,25 @@ if __name__ == "__main__":
                '超级访谈：对话张雪峰', '超级访谈：对话玉伯', '乔新亮的CTO成长复盘', '编译原理之美', '现代C++编程实战', '分布式技术原理与算法解析', '零基础实战机器学习', '人工智能基础课', '深入浅出云计算', '职场求生攻略',
                '业务开发算法50讲', '趣谈Linux操作系统', 'Redis源码剖析与实战', '雷蓓蓓的项目管理实战课', 'Python核心技术与实战', '深入拆解Java虚拟机', 'Linux性能优化实战', 'Go语言核心36讲', '许式伟的架构课', '从0开始学架构',
                '技术领导力实战笔记', '技术领导力实战笔记 2022', '打造爆款短视频', '朱赟的技术管理课', '流程型组织15讲', 'React Native 新架构实战课', 'WebAssembly入门课', 'Flutter核心技术与实战', '现代React Web开发实战',
-               '视觉笔记入门课', 'Vue 3 企业级项目实战课', '玩转Vue 3全家桶']
+               '视觉笔记入门课', 'Vue 3 企业级项目实战课', '玩转Vue 3全家桶','白话法律42讲','从0开始学游戏开发','代码精进之路','郭东白的架构课','后端工程师的高阶面经','MySQL实战45讲','数据结构与算法之美','设计模式之美',
+               'Spring Boot与Kubernetes云原生微服务实践','程序员的数学基础课','小马哥讲Spring核心编程思想']
 
-    # 需要确认课程 '技术领导力实战笔记' '技术领导力实战笔记 2022',
-
-    # 需要保存文件的后缀名，尽量选 .md 或者 .html
+    # 需要保存文件的后缀名，.md 或者 .html
+    # 当使用 .html 的时候，会把音频和图片资源下载到本地
     file_type = '.html'
 
     # 类型 c1, c3(视频), d, q, p29
+    # 但目前不支持下载视频
+    course_type = "c1"
 
-    # 是否获取评论信息，目前暂时设置为不获取，因为 md 文档中评论显示不太好看，如果需要获取评论的话请设置保存文本为 HTML（样式好看些）
-    get_comments = True  # True
+    # 是否获取评论信息，md 文档中评论显示不太好看，如果需要获取评论的话请设置保存文本为 HTML（样式好看些）
+    get_comments = True
 
     try:
         FINISH_ARTICLES = _load_finish_article()
         run(cellphone, pwd, exclude=exclude,
-            file_type=file_type, get_comments=get_comments)
+            file_type=file_type, get_comments=get_comments,
+            course_type=course_type)
     except Exception:
         import traceback
         log.error(f"请求过程中出错了，出错信息为：{traceback.format_exc()}")
