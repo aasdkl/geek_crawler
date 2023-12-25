@@ -29,6 +29,8 @@ log.addHandler(handler)
 # 定义全局变量
 FINISH_ARTICLES = []
 ALL_ARTICLES = []
+AUDIO_REG = re.compile('<audio.*src=".+.mp3".+?></audio>')
+IMG_REG = re.compile('<img.+?src=".+?">')
 
 
 class RequestError(Exception):
@@ -530,18 +532,18 @@ class GeekCrawler:
         """
         返回修改过资源的行
         """
-        findRes = re.search('<audio.*src=".+.mp3".+?></audio>', line)
-        if findRes == None:
-            findRes = re.search('<img.+src=".+?"', line)
-        if findRes != None:
-            line = self.replaceResource(folder, articleName, line, findRes)
+        reg = AUDIO_REG
+        findRes = reg.findall(line)
+        if not findRes:
+            reg = IMG_REG
+            findRes = reg.findall(line)
+        if findRes:
+            line = self.replaceResource(folder, articleName, line, findRes, reg)
         return line
 
-    def replaceResource(self, folder, articleName, line, findResource):
-        dest = self.replaceUrl(folder, articleName, findResource.group())
-        span = findResource.span()
-        replace = line[:span[0]] + dest + line[span[1]:]
-        return replace
+    def replaceResource(self, folder, articleName, line, findResource, reg):
+        dest = [self.replaceUrl(folder, articleName, resource) for resource in findResource]
+        return reg.sub(lambda matched: dest.pop(0), line)
 
     def replaceUrl(self, folder, articleName, resource):
         findSrc = re.search('src=".+?"', resource)
